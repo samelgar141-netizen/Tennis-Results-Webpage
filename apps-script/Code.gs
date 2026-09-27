@@ -1,3 +1,5 @@
+/** @OnlyCurrentDoc */
+
 /**
  * Tennis League Results — Google Apps Script backend (MVP).
  *

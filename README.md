@@ -39,6 +39,8 @@ Google Apps Script web app (apps-script/Code.gs)
 1. **Create the Google Sheet.** Use the Google account the emails should come from. Create a new Google Sheet, then choose **Extensions → Apps Script**.
 2. **Add the code.** Delete the sample code and paste in the contents of `apps-script/Code.gs`. Save.
 3. **Run setup.** Pick `setup` in the function dropdown and click **Run**. Approve the permissions (Sheets and send email). This creates the tabs `Teams`, `Captains`, `Results` and `Config`.
+
+   Google will show **"Google hasn't verified this app"**. This is expected for any personal script, and the "developer" it names is you. Click **Advanced → Go to *(project name)* (unsafe) → Allow**. You only do this once. Captains and viewers never see this screen.
 4. **Fill in the sheet:**
    - `Teams`: one row per team, e.g. `riverside | Riverside LTC`. Choose short IDs and don't change them later.
    - `Captains`: one row per captain email, e.g. `jo@example.com | riverside`. A team can have more than one (e.g. a vice-captain).
