@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>League Results</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 id="league-name">League Results</h1>
+    <span id="demo-badge" class="badge badge-demo" hidden>Demo mode</span>
+  </header>
+
+  <main>
+    <!-- Shown when the page is opened from a confirmation email (?confirm=...) -->
+    <section id="confirm-view" class="card" hidden>
+      <h2>Confirm match result</h2>
+      <div id="confirm-body"><p class="muted">Loading…</p></div>
+      <p><a href="./" id="confirm-back">← Back to results</a></p>
+    </section>
+
+    <div id="main-view">
+      <nav class="tabs" role="tablist">
+        <button role="tab" class="tab" data-tab="results" aria-selected="true">Results</button>
+        <button role="tab" class="tab" data-tab="enter" aria-selected="false">Enter result</button>
+      </nav>
+
+      <section id="tab-results" class="card" role="tabpanel">
+        <div class="row-between">
+          <h2>Results</h2>
+          <label class="inline"><input type="checkbox" id="show-pending"> Show unconfirmed</label>
+        </div>
+        <div id="results-list"><p class="muted">Loading…</p></div>
+      </section>
+
+      <section id="tab-enter" class="card" role="tabpanel" hidden>
+        <h2>Enter a result</h2>
+        <p class="muted">Only registered team captains can enter results. The opposing captain will be emailed to confirm.</p>
+
+        <form id="login-email-form">
+          <label>Captain email
+            <input type="email" id="login-email" required autocomplete="email">
+          </label>
+          <button type="submit">Email me a sign-in code</button>
+        </form>
+
+        <form id="login-code-form" hidden>
+          <p>We've emailed a 6-digit code to <strong id="code-email"></strong>.</p>
+          <label>Sign-in code
+            <input type="text" id="login-code" inputmode="numeric" pattern="\d{6}" maxlength="6" required autocomplete="one-time-code">
+          </label>
+          <div class="actions">
+            <button type="submit">Sign in</button>
+            <button type="button" class="secondary" id="code-back">Use a different email</button>
+          </div>
+        </form>
+
+        <div id="entry-area" hidden>
+          <p class="signed-in">Signed in as <strong id="me-email"></strong> (<span id="me-team"></span>)
+            <button type="button" class="link" id="sign-out">Sign out</button></p>
+
+          <form id="result-form">
+            <fieldset>
+              <legend>Your team played</legend>
+              <label class="inline"><input type="radio" name="venue" value="home" checked> At home</label>
+              <label class="inline"><input type="radio" name="venue" value="away"> Away</label>
+            </fieldset>
+            <label>Opponent
+              <select id="opponent" required></select>
+            </label>
+            <label>Match date
+              <input type="date" id="match-date" required>
+            </label>
+
+            <table class="sets">
+              <thead><tr><th></th><th id="home-label">Home</th><th id="away-label">Away</th></tr></thead>
+              <tbody>
+                <tr><th>Set 1</th><td><input type="number" min="0" max="20" data-set="0" data-side="0" required></td><td><input type="number" min="0" max="20" data-set="0" data-side="1" required></td></tr>
+                <tr><th>Set 2</th><td><input type="number" min="0" max="20" data-set="1" data-side="0"></td><td><input type="number" min="0" max="20" data-set="1" data-side="1"></td></tr>
+                <tr><th>Set 3 / tiebreak</th><td><input type="number" min="0" max="20" data-set="2" data-side="0"></td><td><input type="number" min="0" max="20" data-set="2" data-side="1"></td></tr>
+              </tbody>
+            </table>
+
+            <label>Winner
+              <select id="winner" required></select>
+            </label>
+            <button type="submit">Submit for confirmation</button>
+          </form>
+        </div>
+
+        <p id="enter-message" class="message" role="status" hidden></p>
+      </section>
+    </div>
+
+    <!-- Demo mode only: shows the emails the fake backend "sent" -->
+    <section id="demo-panel" class="card demo" hidden>
+      <div class="row-between">
+        <h2>Demo outbox</h2>
+        <button type="button" class="secondary" id="demo-reset">Reset demo data</button>
+      </div>
+      <p class="muted">Demo captain emails: <span id="demo-captains"></span></p>
+      <div id="demo-outbox"></div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script src="api.mock.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
