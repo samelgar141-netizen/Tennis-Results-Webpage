@@ -49,7 +49,7 @@ Google Apps Script web app (apps-script/Code.gs)
 6. **Publish the site.** Put that URL into `API_URL` in `config.js` (and set `LEAGUE_NAME`), then commit. In GitHub go to **Settings → Pages**, choose *Deploy from a branch*, and select `main` / root. Copy the Pages URL into `siteUrl` in the `Config` sheet.
 7. **Test it.** Use two captain emails you control: submit as one, confirm from the email sent to the other, and check that the league inbox gets the notification.
 
-> If you change `Code.gs` later, use **Deploy → Manage deployments → Edit → New version** so the same URL picks up the change.
+> **Whenever `Code.gs` changes:** paste the new version into Apps Script, save, then choose **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**. The URL stays the same, so `config.js` doesn't need to change.
 
 The league administers everything from the Sheet: add or remove captains, fix scores, or delete a duplicate row.
 
@@ -57,7 +57,7 @@ The league administers everything from the Sheet: add or remove captains, fix sc
 
 - Gmail accounts can send about 100 emails a day through Apps Script, which is plenty for a typical league.
 - Captains choose the opponent themselves. There's no fixture list yet, so duplicates are possible (delete them in the Sheet).
-- Scores are entered as up to 3 sets (home games first). The 3rd set can be a match tiebreak such as 10-8.
+- The match format is fixed: two sets (6-0 to 6-4, 7-5 or 7-6), then a **championship tiebreak** at one set all (first to 10 points, 2 clear, e.g. 10-8 or 12-10). Scores are entered home team first. The winner is worked out from the score, and the rules are checked in both `scoring.js` and `Code.gs`. Retirements and walkovers aren't supported yet.
 - There are no automatic reminders or auto-confirm yet.
 
 ## Upgrading later

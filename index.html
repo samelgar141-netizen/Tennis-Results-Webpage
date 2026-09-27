@@ -13,6 +13,11 @@
   </header>
 
   <main>
+    <div id="teams-error" class="message error" hidden>
+      <span id="teams-error-text"></span>
+      <button type="button" class="secondary" id="teams-retry">Retry</button>
+    </div>
+
     <!-- Shown when the page is opened from a confirmation email (?confirm=...) -->
     <section id="confirm-view" class="card" hidden>
       <h2>Confirm match result</h2>
@@ -76,15 +81,13 @@
             <table class="sets">
               <thead><tr><th></th><th id="home-label">Home</th><th id="away-label">Away</th></tr></thead>
               <tbody>
-                <tr><th>Set 1</th><td><input type="number" min="0" max="20" data-set="0" data-side="0" required></td><td><input type="number" min="0" max="20" data-set="0" data-side="1" required></td></tr>
-                <tr><th>Set 2</th><td><input type="number" min="0" max="20" data-set="1" data-side="0"></td><td><input type="number" min="0" max="20" data-set="1" data-side="1"></td></tr>
-                <tr><th>Set 3 / tiebreak</th><td><input type="number" min="0" max="20" data-set="2" data-side="0"></td><td><input type="number" min="0" max="20" data-set="2" data-side="1"></td></tr>
+                <tr><th>Set 1</th><td><input type="number" min="0" max="7" data-set="0" data-side="0" aria-label="Set 1 home games" required></td><td><input type="number" min="0" max="7" data-set="0" data-side="1" aria-label="Set 1 away games" required></td></tr>
+                <tr><th>Set 2</th><td><input type="number" min="0" max="7" data-set="1" data-side="0" aria-label="Set 2 home games" required></td><td><input type="number" min="0" max="7" data-set="1" data-side="1" aria-label="Set 2 away games" required></td></tr>
+                <tr id="tiebreak-row" class="inactive"><th>Championship tiebreak<br><span class="muted small">only at one set all · first to 10, 2 clear</span></th><td><input type="number" min="0" max="99" data-set="2" data-side="0" aria-label="Tiebreak home points" disabled></td><td><input type="number" min="0" max="99" data-set="2" data-side="1" aria-label="Tiebreak away points" disabled></td></tr>
               </tbody>
             </table>
 
-            <label>Winner
-              <select id="winner" required></select>
-            </label>
+            <p id="winner-line" class="winner-line" role="status">Winner: enter the scores above</p>
             <button type="submit">Submit for confirmation</button>
           </form>
         </div>
@@ -105,6 +108,7 @@
   </main>
 
   <script src="config.js"></script>
+  <script src="scoring.js"></script>
   <script src="api.js"></script>
   <script src="api.mock.js"></script>
   <script src="app.js"></script>

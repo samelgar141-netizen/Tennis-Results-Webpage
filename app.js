@@ -18,8 +18,9 @@
     children.flat().forEach((c) => node.append(c instanceof Node ? c : String(c)));
     return node;
   }
-  const teamName = (id) => (teams.find((t) => t.teamId === id) || {}).name || id;
-  const score = (sets) => sets.map((s) => s.join('–')).join(', ');
+  const teamName = (id) => (teams.find((t) => t.teamId === id) || {}).name ||
+    (session && session.teamId === id ? session.teamName : id);
+  const score = (sets) => window.Scoring.formatScore(sets);
   const statusBadge = (s) => el('span', { class: 'badge badge-' + s }, s);
 
   function loadSession() {
@@ -42,17 +43,33 @@
     try { return await fn(); } finally { button.disabled = false; }
   }
 
+  // Loads the team list, retrying when it is empty (or forced) so a failed or
+  // stale first load doesn't leave the opponent list blank.
+  async function ensureTeams({ force } = {}) {
+    if (teams.length && !force) return;
+    const box = $('teams-error');
+    try {
+      teams = await api.listTeams();
+      box.hidden = true;
+    } catch (e) {
+      box.hidden = false;
+      $('teams-error-text').textContent = `Couldn't load the team list: ${e.message}`;
+    }
+  }
+
   // ---------- tabs ----------
-  function selectTab(name) {
+  async function selectTab(name) {
     document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
     $('tab-results').hidden = name !== 'results';
     $('tab-enter').hidden = name !== 'enter';
     if (name === 'results') renderResults();
+    if (name === 'enter') { await ensureTeams(); renderEnter(); }
   }
 
   // ---------- results tab ----------
   async function renderResults() {
     const list = $('results-list');
+    await ensureTeams();
     try {
       const results = (await api.listResults())
         .filter((r) => $('show-pending').checked || r.status === 'confirmed')
@@ -88,8 +105,10 @@
     $('me-email').textContent = session.email;
     $('me-team').textContent = session.teamName;
     const opp = $('opponent');
+    const prev = opp.value;
     opp.replaceChildren(el('option', { value: '' }, 'Select opponent…'),
       ...teams.filter((t) => t.teamId !== session.teamId).map((t) => el('option', { value: t.teamId }, t.name)));
+    opp.value = prev;
     updateFormLabels();
   }
 
@@ -99,15 +118,19 @@
     return home ? { homeTeamId: session.teamId, awayTeamId: opp } : { homeTeamId: opp, awayTeamId: session.teamId };
   }
 
+  const scoreInput = (set, side) => document.querySelector(`input[data-set="${set}"][data-side="${side}"]`);
+
+  // Returns the sets entered so far; throws if a row is half-filled.
   function readSets() {
     const sets = [];
     for (let i = 0; i < 3; i++) {
-      const [h, a] = [0, 1].map((s) => document.querySelector(`input[data-set="${i}"][data-side="${s}"]`).value);
+      const [h, a] = [0, 1].map((side) => scoreInput(i, side).value);
       if (h === '' && a === '') continue;
-      if (h === '' || a === '') throw new Error(`Please complete both scores for set ${i + 1}.`);
+      if (h === '' || a === '') {
+        throw new Error(i === 2 ? 'Please complete both championship tiebreak scores.' : `Please complete both scores for set ${i + 1}.`);
+      }
       sets.push([Number(h), Number(a)]);
     }
-    if (!sets.length) throw new Error('Please enter at least one set score.');
     return sets;
   }
 
@@ -115,17 +138,39 @@
     const { homeTeamId, awayTeamId } = sides();
     $('home-label').textContent = homeTeamId ? teamName(homeTeamId) : 'Home';
     $('away-label').textContent = awayTeamId ? teamName(awayTeamId) : 'Away';
-    const winner = $('winner');
-    const prev = winner.value;
-    winner.replaceChildren(el('option', { value: '' }, 'Select winner…'),
-      ...[homeTeamId, awayTeamId].filter(Boolean).map((id) => el('option', { value: id }, teamName(id))));
-    // Suggest the winner from the set count, but let the captain override (e.g. retirements).
-    let sets = [];
-    try { sets = readSets(); } catch (e) { /* incomplete */ }
-    const homeSets = sets.filter(([h, a]) => h > a).length;
-    const awaySets = sets.filter(([h, a]) => a > h).length;
-    if (homeSets !== awaySets && homeTeamId && awayTeamId) winner.value = homeSets > awaySets ? homeTeamId : awayTeamId;
-    else if (prev) winner.value = prev;
+
+    // The championship tiebreak is only played at one set all.
+    const setWinner = (i) => {
+      const h = scoreInput(i, 0).value, a = scoreInput(i, 1).value;
+      return h === '' || a === '' ? null : Number(h) > Number(a) ? 'home' : Number(a) > Number(h) ? 'away' : null;
+    };
+    const w1 = setWinner(0), w2 = setWinner(1);
+    const tiebreakNeeded = !!w1 && !!w2 && w1 !== w2;
+    [0, 1].forEach((side) => {
+      const input = scoreInput(2, side);
+      input.disabled = !tiebreakNeeded;
+      input.required = tiebreakNeeded;
+      if (!tiebreakNeeded) input.value = '';
+    });
+    $('tiebreak-row').classList.toggle('inactive', !tiebreakNeeded);
+
+    // Work out the winner live, and flag score problems once both sets are in.
+    const line = $('winner-line');
+    let text = 'Winner: enter the scores above';
+    let error = false;
+    try {
+      const sets = readSets();
+      if (sets.length >= 2 && (!tiebreakNeeded || sets.length === 3)) {
+        const { winner } = window.Scoring.validateScore(sets);
+        const id = winner === 'home' ? homeTeamId : awayTeamId;
+        text = 'Winner: ' + (id ? teamName(id) : winner === 'home' ? 'Home team' : 'Away team');
+      }
+    } catch (e) {
+      text = e.message;
+      error = true;
+    }
+    line.textContent = text;
+    line.classList.toggle('error-text', error);
   }
 
   // ---------- confirm view ----------
@@ -133,6 +178,7 @@
     $('confirm-view').hidden = false;
     $('main-view').hidden = true;
     const body = $('confirm-body');
+    await ensureTeams();
     try {
       const r = await api.getConfirmation(token);
       const summary = el('dl', { class: 'summary' },
@@ -216,6 +262,7 @@
         try {
           saveSession(await api.verifyCode($('login-email').value, $('login-code').value));
           showMessage('');
+          await ensureTeams({ force: true });
           renderEnter();
         } catch (e) { showMessage(e.message, 'error'); }
       });
@@ -233,9 +280,10 @@
         try {
           const payload = Object.assign(sides(), {
             date: $('match-date').value,
-            sets: readSets(),
-            winnerTeamId: $('winner').value
+            sets: readSets()
           });
+          if (!payload.awayTeamId || !payload.homeTeamId) throw new Error('Please select the opponent.');
+          window.Scoring.validateScore(payload.sets);
           await api.submitResult(session.token, payload);
           form.reset();
           updateFormLabels();
@@ -248,6 +296,12 @@
       });
     });
 
+    $('teams-retry').addEventListener('click', async () => {
+      await ensureTeams({ force: true });
+      const confirmToken = new URLSearchParams(location.search).get('confirm');
+      if (confirmToken) renderConfirm(confirmToken);
+      else { renderEnter(); renderResults(); }
+    });
     $('demo-reset').addEventListener('click', () => { api.reset(); saveSession(null); location.href = location.pathname; });
   }
 
@@ -258,7 +312,7 @@
     }
     $('demo-badge').hidden = !api.isMock;
     wire();
-    try { teams = await api.listTeams(); } catch (e) { /* shown by later calls */ }
+    await ensureTeams();
 
     const confirmToken = new URLSearchParams(location.search).get('confirm');
     if (confirmToken) return renderConfirm(confirmToken);

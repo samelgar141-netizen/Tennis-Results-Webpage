@@ -48,7 +48,8 @@ window.MockApi = (function () {
   }
   function describe(db, r) {
     return `Date: ${r.date}\nHome: ${teamName(db, r.homeTeamId)}\nAway: ${teamName(db, r.awayTeamId)}\n` +
-      `Score (home first): ${r.sets.map((s) => s.join('-')).join(', ')}\nWinner: ${teamName(db, r.winnerTeamId)}`;
+      `Score (home first): ${r.sets.map((s) => s.join('-')).join(', ')}` +
+      (r.sets.length === 3 ? ' (third score is the championship tiebreak)' : '') + `\nWinner: ${teamName(db, r.winnerTeamId)}`;
   }
   function session(token) {
     try {
@@ -100,20 +101,17 @@ window.MockApi = (function () {
       if (c.teamId !== p.homeTeamId && c.teamId !== p.awayTeamId) {
         fail('You can only enter results for matches your team played.');
       }
-      if (p.winnerTeamId !== p.homeTeamId && p.winnerTeamId !== p.awayTeamId) fail('Please select the winner.');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) fail('Please enter a valid match date.');
-      if (!Array.isArray(p.sets) || !p.sets.length) fail('Please enter the set scores.');
-      p.sets.forEach(([h, a]) => {
-        if (![h, a].every((n) => Number.isInteger(n) && n >= 0 && n <= 20)) fail('Invalid set score.');
-        if (h === a) fail('A set cannot be tied.');
-      });
+      // The winner is always worked out from the score, never taken from the client.
+      const { winner } = window.Scoring.validateScore(p.sets);
+      const winnerTeamId = winner === 'home' ? p.homeTeamId : p.awayTeamId;
       const opponent = c.teamId === p.homeTeamId ? p.awayTeamId : p.homeTeamId;
       const oppEmails = db.captains.filter((x) => x.teamId === opponent).map((x) => x.email);
       if (!oppEmails.length) fail('The opposing team has no registered captain. Please contact the league.');
 
       const r = {
         resultId: uid(), submittedAt: new Date().toISOString(), date: p.date,
-        homeTeamId: p.homeTeamId, awayTeamId: p.awayTeamId, sets: p.sets, winnerTeamId: p.winnerTeamId,
+        homeTeamId: p.homeTeamId, awayTeamId: p.awayTeamId, sets: p.sets, winnerTeamId,
         submittedBy: email, status: 'pending', confirmToken: uid() + uid(), respondedBy: '', comment: ''
       };
       db.results.push(r);
