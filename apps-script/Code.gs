@@ -22,7 +22,6 @@ var CODE_TTL_SECONDS = 10 * 60;          // login code lifetime
 var CODE_MAX_ATTEMPTS = 5;
 var CODE_RESEND_SECONDS = 60;            // throttle code emails per address
 var SESSION_TTL_MS = 7 * 24 * 3600 * 1000;
-var MAX_GAMES_PER_SET = 20;              // allows match tiebreaks such as 10-8
 
 var SCHEMA = {
   Teams: ['teamId', 'name'],
@@ -147,15 +146,15 @@ function submitResult(p) {
 
   var teams = teamMap_();
   var home = String(p.homeTeamId || ''), away = String(p.awayTeamId || '');
-  var winner = String(p.winnerTeamId || '');
   if (!teams[home] || !teams[away]) throw new UserError('Unknown team.');
   if (home === away) throw new UserError('Home and away teams must be different.');
   if (captain.teamId !== home && captain.teamId !== away) {
     throw new UserError('You can only enter results for matches your team played.');
   }
-  if (winner !== home && winner !== away) throw new UserError('Please select the winner.');
   var date = validateDate_(p.date);
   var sets = validateSets_(p.sets);
+  // The winner is always worked out from the score, never taken from the client.
+  var winner = setsWinner_(sets) === 'home' ? home : away;
 
   var opponentId = captain.teamId === home ? away : home;
   var opponentEmails = captainsForTeam_(opponentId);
@@ -278,20 +277,52 @@ function validateDate_(d) {
   return s;
 }
 
-/** sets: [[homeGames, awayGames], ...] — 1 to 5 sets, no tied sets. */
+/**
+ * League format: two sets, then a championship tiebreak at one set all.
+ * sets: [[home, away], [home, away], [home, away]?]. Mirrors scoring.js in the site.
+ */
+var SET_SCORES = ['6-0', '6-1', '6-2', '6-3', '6-4', '7-5', '7-6'];
+
 function validateSets_(sets) {
-  if (!Array.isArray(sets) || sets.length < 1 || sets.length > 5) {
-    throw new UserError('Please enter the set scores.');
+  if (!Array.isArray(sets) || sets.length < 2 || sets.length > 3) {
+    throw new UserError('Please enter scores for sets 1 and 2.');
   }
-  return sets.map(function (s) {
-    if (!Array.isArray(s) || s.length !== 2) throw new UserError('Invalid set score.');
-    var h = Number(s[0]), a = Number(s[1]);
-    [h, a].forEach(function (n) {
-      if (!Number.isInteger(n) || n < 0 || n > MAX_GAMES_PER_SET) throw new UserError('Invalid set score.');
+  sets = sets.map(function (s) {
+    if (!Array.isArray(s) || s.length !== 2) throw new UserError('Scores must be whole numbers.');
+    var pair = [Number(s[0]), Number(s[1])];
+    pair.forEach(function (n) {
+      if (!Number.isInteger(n) || n < 0 || n > 99) throw new UserError('Scores must be whole numbers.');
     });
-    if (h === a) throw new UserError('A set cannot be tied.');
-    return [h, a];
+    return pair;
   });
+  for (var i = 0; i < 2; i++) {
+    var hi = Math.max(sets[i][0], sets[i][1]), lo = Math.min(sets[i][0], sets[i][1]);
+    if (SET_SCORES.indexOf(hi + '-' + lo) === -1) {
+      throw new UserError('Set ' + (i + 1) + ' score ' + sets[i][0] + '-' + sets[i][1] +
+        " isn't valid (e.g. 6-4, 7-5 or 7-6).");
+    }
+  }
+  var homeSets = sets.slice(0, 2).filter(function (s) { return s[0] > s[1]; }).length;
+  if (homeSets !== 1) {
+    if (sets.length === 3) throw new UserError('No championship tiebreak is played after a straight-sets win.');
+    return sets;
+  }
+  if (sets.length !== 3) throw new UserError('At one set all, please enter the championship tiebreak score.');
+  var tbHi = Math.max(sets[2][0], sets[2][1]), tbLo = Math.min(sets[2][0], sets[2][1]);
+  // First to 10 points, 2 clear; beyond 10 the margin must be exactly 2.
+  if (tbHi < 10 || tbHi - tbLo < 2 || (tbHi > 10 && tbHi - tbLo !== 2)) {
+    throw new UserError('Championship tiebreak ' + sets[2][0] + '-' + sets[2][1] +
+      " isn't valid: first to 10, 2 points clear (e.g. 10-8, 12-10).");
+  }
+  return sets;
+}
+
+/** Winner of an already-validated score: 'home' or 'away'. */
+function setsWinner_(sets) {
+  var homeSets = sets.slice(0, 2).filter(function (s) { return s[0] > s[1]; }).length;
+  if (homeSets === 2) return 'home';
+  if (homeSets === 0) return 'away';
+  return sets[2][0] > sets[2][1] ? 'home' : 'away';
 }
 
 function formatSets_(sets) {
@@ -309,7 +340,8 @@ function describeResult_(r, teams) {
   return 'Date: ' + r.date + '\n' +
     'Home: ' + teams[r.homeTeamId] + '\n' +
     'Away: ' + teams[r.awayTeamId] + '\n' +
-    'Score (home first): ' + r.sets + '\n' +
+    'Score (home first): ' + r.sets +
+    (parseSets_(r.sets).length === 3 ? ' (third score is the championship tiebreak)' : '') + '\n' +
     'Winner: ' + teams[r.winnerTeamId];
 }
 

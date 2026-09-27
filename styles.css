@@ -21,6 +21,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
 .site-header { display: flex; align-items: center; gap: 12px; padding: 16px; max-width: 900px; margin: 0 auto; }
 .site-header h1 { margin: 0; font-size: 1.5rem; }
@@ -84,3 +85,9 @@ dl.summary dd { margin: 0; }
   table.results td { display: flex; justify-content: space-between; border: none; padding: 2px 0; }
   table.results td::before { content: attr(data-label); font-weight: 600; color: var(--muted); }
 }
+
+.small { font-size: .8rem; font-weight: normal; }
+#tiebreak-row.inactive { opacity: .5; }
+.winner-line { margin: 0; font-weight: 600; }
+.winner-line.error-text { color: var(--danger); font-weight: normal; }
+#teams-error { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
